@@ -16,29 +16,44 @@ EXTRA_DIST =  \
 	perl/lib/Subunit.pm \
 	perl/lib/Subunit/Diff.pm \
 	perl/subunit-diff \
-	python/iso8601/LICENSE \
-	python/iso8601/README \
-	python/iso8601/README.subunit \
-	python/iso8601/setup.py \
-	python/iso8601/test_iso8601.py \
-	python/subunit/tests/__init__.py \
-	python/subunit/tests/sample-script.py \
-	python/subunit/tests/sample-two-script.py \
-	python/subunit/tests/test_chunked.py \
-	python/subunit/tests/test_details.py \
-	python/subunit/tests/test_filters.py \
-	python/subunit/tests/test_filter_to_disk.py \
-	python/subunit/tests/test_output_filter.py \
-	python/subunit/tests/test_progress_model.py \
-	python/subunit/tests/test_run.py \
-	python/subunit/tests/test_subunit_filter.py \
-	python/subunit/tests/test_subunit_stats.py \
-	python/subunit/tests/test_subunit_tags.py \
-	python/subunit/tests/test_tap2subunit.py \
-	python/subunit/tests/test_test_protocol.py \
-	python/subunit/tests/test_test_protocol2.py \
-	python/subunit/tests/test_test_results.py \
-	setup.py \
+ 	python/iso8601/LICENSE \
+ 	python/iso8601/README \
+ 	python/iso8601/README.subunit \
+ 	python/iso8601/setup.py \
+ 	python/iso8601/test_iso8601.py \
+ 	python/subunit/tests/__init__.py \
+ 	python/subunit/tests/sample-script.py \
+ 	python/subunit/tests/sample-two-script.py \
+ 	python/subunit/tests/test_chunked.py \
+ 	python/subunit/tests/test_details.py \
+ 	python/subunit/tests/test_filters.py \
+ 	python/subunit/tests/test_filter_to_disk.py \
+ 	python/subunit/tests/test_output_filter.py \
+ 	python/subunit/tests/test_progress_model.py \
+ 	python/subunit/tests/test_run.py \
+ 	python/subunit/tests/test_subunit_filter.py \
+ 	python/subunit/tests/test_subunit_stats.py \
+ 	python/subunit/tests/test_subunit_tags.py \
+ 	python/subunit/tests/test_tap2subunit.py \
+ 	python/subunit/tests/test_test_protocol.py \
+ 	python/subunit/tests/test_test_protocol2.py \
+ 	python/subunit/tests/test_test_results.py \
+	python/subunit/filter_scripts/__init__.py \
+	python/subunit/filter_scripts/subunit_1to2.py \
+	python/subunit/filter_scripts/subunit2csv.py \
+	python/subunit/filter_scripts/subunit2disk.py \
+	python/subunit/filter_scripts/subunit2gtk.py \
+	python/subunit/filter_scripts/subunit2junitxml.py \
+	python/subunit/filter_scripts/subunit2pyunit.py \
+	python/subunit/filter_scripts/subunit_2to1.py \
+	python/subunit/filter_scripts/subunit_filter.py \
+	python/subunit/filter_scripts/subunit_ls.py \
+	python/subunit/filter_scripts/subunit_notify.py \
+	python/subunit/filter_scripts/subunit_output.py \
+	python/subunit/filter_scripts/subunit_stats.py \
+	python/subunit/filter_scripts/subunit_tags.py \
+	python/subunit/filter_scripts/tap2subunit.py \
+ 	setup.py \
 	shell/README \
 	shell/share/subunit.sh \
 	shell/subunit-ui.patch \
@@ -48,22 +63,6 @@ EXTRA_DIST =  \
 ACLOCAL_AMFLAGS = -I m4
 
 include_subunitdir = $(includedir)/subunit
-
-dist_bin_SCRIPTS = \
-	filters/subunit-1to2 \
-	filters/subunit-2to1 \
-	filters/subunit-filter \
-	filters/subunit-ls \
-	filters/subunit-notify \
-	filters/subunit-output \
-	filters/subunit-stats \
-	filters/subunit-tags \
-	filters/subunit2csv \
-	filters/subunit2disk \
-	filters/subunit2gtk \
-	filters/subunit2junitxml \
-	filters/subunit2pyunit \
-	filters/tap2subunit
 
 TESTS = $(check_PROGRAMS)
 
@@ -115,38 +114,29 @@ all-local: perl/Makefile
 check-local: perl/Makefile
 	$(MAKE) -C perl check
 	SHELL_SHARE='$(top_srcdir)/shell/share/' \
-	PYTHONPATH='$(abs_top_srcdir)/python':'$(abs_top_srcdir)':${PYTHONPATH} \
+	PYTHONPATH='$(abs_top_srcdir)/python':'$(abs_top_srcdir)':$${PYTHONPATH} \
 	$(PYTHON) -m testtools.run all_tests.test_suite
 
 clean-local:
 	find . -type f -name "*.pyc" -exec rm {} ';'
 	rm -f perl/Makefile
 
+# The default for MakeMaker; can be overridden by exporting
+PERL_INSTALLDIRS ?= site
+
 # Remove perl dir for VPATH builds.
 distclean-local:
-	-rm perl/Makefile.PL > /dev/null
-	-rm perl/MYMETA.json > /dev/null
+	-rm perl/Makefile.PL || true
 	-rmdir perl > /dev/null
 	-rm -r .hypothesis > /dev/null
 
 install-exec-local: perl/Makefile
-	$(MAKE) -C perl install
+	$(MAKE) -C perl install INSTALLDIRS=${PERL_INSTALLDIRS} DESTDIR=$(DESTDIR) INSTALL_BASE=$(prefix) INSTALLSITEBIN=$(bindir)
 
 mostlyclean-local:
 	rm -rf perl/blib
 	rm -rf perl/pm_to_blib
 
 # 'uninstall' perl files during distcheck
-uninstall-local:
-	if [ "_inst" = `basename ${prefix}` ]; then \
-	  $(MAKE) -C perl uninstall_distcheck; \
-	    rm -f "$(DESTDIR)$(bindir)"/subunit-diff; \
-	fi
-
-# The default for MakeMaker; can be overridden by exporting
-INSTALLDIRS ?= site
-
-perl/Makefile: perl/Makefile.PL
-	mkdir -p perl
-	cd perl && perl Makefile.PL INSTALLDIRS=${INSTALLDIRS}
-	-rm perl/Makefile.old > /dev/null
+uninstall-local: perl/Makefile
+	$(MAKE) -C perl uninstall_distcheck INSTALLDIRS=${PERL_INSTALLDIRS} DESTDIR=$(DESTDIR) INSTALLSITEBIN=$(bindir)

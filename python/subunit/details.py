@@ -6,7 +6,7 @@
 #  license at the users choice. A copy of both licenses are available in the
 #  project source as Apache-2.0 and BSD. You may not use this file except in
 #  compliance with one of these two licences.
-#  
+#
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under these licenses is distributed on an "AS IS" BASIS, WITHOUT
 #  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -16,8 +16,10 @@
 
 """Handlers for outcome details."""
 
+from io import BytesIO, StringIO
+
 from testtools import content, content_type
-from testtools.compat import _b, BytesIO
+from testtools.compat import _b
 
 from subunit import chunked
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #  subunit: extensions to python unittest to get test results from subprocesses.
 #  Copyright (C) 2010 Jelmer Vernooij <jelmer@samba.org>
 #
@@ -43,6 +43,11 @@ def notify_of_result(result):
     nw.show()
 
 
-run_filter_script(
-    lambda output:StreamToExtendedDecorator(TestResultStats(output)),
-    __doc__, notify_of_result, protocol_version=2)
+def main():
+    run_filter_script(
+        lambda output:StreamToExtendedDecorator(TestResultStats(output)),
+        __doc__, notify_of_result, protocol_version=2)
+
+
+if __name__ == '__main__':
+    main()

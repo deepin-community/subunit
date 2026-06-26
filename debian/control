@@ -79,6 +79,7 @@ Depends:
  ${misc:Depends},
  ${perl:Depends},
 Section: perl
+Multi-Arch: foreign
 Description: perl parser and diff for Subunit streams
  subunit is a protocol for test activity serialisation deserialisation. This
  permits executing tests remotely, or saving the result of test runs for later

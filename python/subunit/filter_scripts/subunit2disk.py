@@ -1,26 +1,29 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #  subunit: extensions to python unittest to get test results from subprocesses.
-#  Copyright (C) 2009  Robert Collins <robertc@robertcollins.net>
+#  Copyright (C) 2013 Subunit Contributors
 #
 #  Licensed under either the Apache License, Version 2.0 or the BSD 3-clause
 #  license at the users choice. A copy of both licenses are available in the
 #  project source as Apache-2.0 and BSD. You may not use this file except in
 #  compliance with one of these two licences.
-#  
+#
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under these licenses is distributed on an "AS IS" BASIS, WITHOUT
 #  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
 #  license you chose for the specific language governing permissions and
 #  limitations under that license.
-#
 
-"""A filter that reads a TAP stream and outputs a subunit stream.
 
-More information on TAP is available at
-http://testanything.org/wiki/index.php/Main_Page.
-"""
+"""Export a stream to files and directories on disk."""
 
 import sys
 
-from subunit import TAP2SubUnit
-sys.exit(TAP2SubUnit(sys.stdin, sys.stdout))
+from subunit._to_disk import to_disk
+
+
+def main():
+    sys.exit(to_disk())
+
+
+if __name__ == '__main__':
+    main()
