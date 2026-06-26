@@ -42,8 +42,7 @@ Twisted. See the ``TestProtocolServer`` parser class for more details.
 Subunit includes extensions to the Python ``TestResult`` protocol. These are
 all done in a compatible manner: ``TestResult`` objects that do not implement
 the extension methods will not cause errors to be raised, instead the extension
-will either lose fidelity (for instance, folding expected failures to success
-in Python versions < 2.7 or 3.1), or discard the extended data (for extra
+will either lose fidelity, or discard the extended data (for extra
 details, tags, timestamping and progress markers).
 
 The test outcome methods ``addSuccess``, ``addError``, ``addExpectedFailure``,
@@ -116,20 +115,19 @@ Utility modules
 * subunit.test_results contains TestResult helper classes.
 """
 
+from io import BytesIO
+from io import StringIO
+from io import UnsupportedOperation as _UnsupportedOperation
 import os
 import re
 import subprocess
 import sys
 import unittest
-try:
-    from io import UnsupportedOperation as _UnsupportedOperation
-except ImportError:
-    _UnsupportedOperation = AttributeError
 
 from extras import safe_hasattr
 from testtools import content, content_type, ExtendedToOriginalDecorator
 from testtools.content import TracebackContent
-from testtools.compat import _b, _u, BytesIO, StringIO
+from testtools.compat import _b, _u
 try:
     from testtools.testresult.real import _StringException
     RemoteException = _StringException
@@ -153,7 +151,7 @@ from subunit.v2 import ByteStreamToStreamResult, StreamResultToBytes
 # If the releaselevel is 'final', then the tarball will be major.minor.micro.
 # Otherwise it is major.minor.micro~$(revno).
 
-__version__ = (1, 4, 0, 'final', 0)
+__version__ = (1, 4, 2, 'final', 0)
 
 PROGRESS_SET = 0
 PROGRESS_CUR = 1
@@ -509,9 +507,7 @@ class TestProtocolServer(object):
         """
         self.client = ExtendedToOriginalDecorator(client)
         if stream is None:
-            stream = sys.stdout
-            if sys.version_info > (3, 0):
-                stream = stream.buffer
+            stream = sys.stdout.buffer
         self._stream = stream
         self._forward_stream = forward_stream or DiscardStream()
         # state objects we can switch too
@@ -817,7 +813,7 @@ class TestProtocolClient(testresult.TestResult):
             if parameters:
                 self._stream.write(_b(";"))
                 param_strs = []
-                for param, value in parameters.items():
+                for param, value in sorted(parameters.items()):
                     param_strs.append("%s=%s" % (param, value))
                 self._stream.write(_b(",".join(param_strs)))
             self._stream.write(_b("\n%s\n" % name))
@@ -1033,7 +1029,7 @@ def TAP2SubUnit(tap, output_stream):
             file_name=file_name, runnable=False)
     for line in tap:
         if state == BEFORE_PLAN:
-            match = re.match("(\d+)\.\.(\d+)\s*(?:\#\s+(.*))?\n", line)
+            match = re.match(r"(\d+)\.\.(\d+)\s*(?:\#\s+(.*))?\n", line)
             if match:
                 state = AFTER_PLAN
                 _, plan_stop, comment = match.groups()
@@ -1046,7 +1042,7 @@ def TAP2SubUnit(tap, output_stream):
                         file_name='tap comment')
                 continue
         # not a plan line, or have seen one before
-        match = re.match("(ok|not ok)(?:\s+(\d+)?)?(?:\s+([^#]*[^#\s]+)\s*)?(?:\s+#\s+(TODO|SKIP|skip|todo)(?:\s+(.*))?)?\n", line)
+        match = re.match(r"(ok|not ok)(?:\s+(\d+)?)?(?:\s+([^#]*[^#\s]+)\s*)?(?:\s+#\s+(TODO|SKIP|skip|todo)(?:\s+(.*))?)?\n", line)
         if match:
             # new test, emit current one.
             _emit_test()
@@ -1074,7 +1070,7 @@ def TAP2SubUnit(tap, output_stream):
             test_name = "test %d%s" % (plan_start, description)
             plan_start += 1
             continue
-        match = re.match("Bail out\!(?:\s*(.*))?\n", line)
+        match = re.match(r"Bail out\!(?:\s*(.*))?\n", line)
         if match:
             reason, = match.groups()
             if reason is None:
@@ -1086,7 +1082,7 @@ def TAP2SubUnit(tap, output_stream):
             result = "fail"
             state = SKIP_STREAM
             continue
-        match = re.match("\#.*\n", line)
+        match = re.match(r"\#.*\n", line)
         if match:
             log.append(line[:-1])
             continue
@@ -1256,11 +1252,9 @@ def read_test_list(path):
     :param path: Path to the file
     :return: Sequence of test ids
     """
-    f = open(path, 'rb')
-    try:
-        return [l.rstrip("\n") for l in f.readlines()]
-    finally:
-        f.close()
+    with open(path, 'r') as f:
+        return [line.split('#')[0].rstrip() for line in f.readlines()
+                if line.split('#')[0]]
 
 
 def make_stream_binary(stream):
@@ -1288,11 +1282,7 @@ def _make_binary_on_windows(fileno):
 def _unwrap_text(stream):
     """Unwrap stream if it is a text stream to get the original buffer."""
     exceptions = (_UnsupportedOperation, IOError)
-    if sys.version_info > (3, 0):
-        unicode_type = str
-    else:
-        unicode_type = unicode
-        exceptions += (ValueError,)
+    unicode_type = str
     try:
         # Read streams
         if type(stream.read(0)) is unicode_type:

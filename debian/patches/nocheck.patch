@@ -1,6 +1,8 @@
---- subunit-1.3.0.orig/Makefile.am
-+++ subunit-1.3.0/Makefile.am
-@@ -93,8 +93,10 @@
+Index: subunit/Makefile.am
+===================================================================
+--- subunit.orig/Makefile.am
++++ subunit/Makefile.am
+@@ -92,8 +92,10 @@ include_subunit_HEADERS = \
  	c/include/subunit/child.h \
  	c++/SubunitTestProgressListener.h
  
@@ -11,7 +13,7 @@
  
  libsubunit_la_SOURCES = \
  	c/lib/child.c \
-@@ -104,9 +106,11 @@
+@@ -103,9 +105,11 @@ libcppunit_subunit_la_SOURCES = \
  	c++/SubunitTestProgressListener.cpp \
  	c++/SubunitTestProgressListener.h
  
@@ -23,9 +25,11 @@
  
  
  all-local: perl/Makefile
---- subunit-1.3.0.orig/configure.ac
-+++ subunit-1.3.0/configure.ac
-@@ -8,6 +8,9 @@
+Index: subunit/configure.ac
+===================================================================
+--- subunit.orig/configure.ac
++++ subunit/configure.ac
+@@ -8,6 +8,9 @@ AC_INIT([subunit], [SUBUNIT_VERSION], [s
  AC_CONFIG_SRCDIR([c/lib/child.c])
  AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
  AC_CONFIG_MACRO_DIR([m4])
@@ -35,7 +39,7 @@
  [SUBUNIT_MAJOR_VERSION]=SUBUNIT_MAJOR_VERSION
  [SUBUNIT_MINOR_VERSION]=SUBUNIT_MINOR_VERSION
  [SUBUNIT_MICRO_VERSION]=SUBUNIT_MICRO_VERSION
-@@ -61,7 +64,9 @@
+@@ -61,7 +64,9 @@ AC_FUNC_REALLOC
  
  # Easier memory management.
  # C unit testing.

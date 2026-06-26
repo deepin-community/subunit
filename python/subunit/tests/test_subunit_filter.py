@@ -17,17 +17,18 @@
 """Tests for subunit.TestResultFilter."""
 
 from datetime import datetime
+from io import BytesIO
 import os
 import subprocess
 import sys
-from subunit import iso8601
 import unittest
 
+from testtools.compat import _b
 from testtools import TestCase
-from testtools.compat import _b, BytesIO
 from testtools.testresult.doubles import ExtendedTestResult, StreamResult
 
 import subunit
+from subunit import iso8601
 from subunit.test_results import make_tag_filter, TestResultFilter
 from subunit import ByteStreamToStreamResult, StreamResultToBytes
 
@@ -296,18 +297,11 @@ xfail todo
              ('stopTest', 'foo - renamed')],
             [(ev[0], ev[1].id()) for ev in result._events])
 
-    if sys.version_info < (2, 7):
-        # These tests require Python >=2.7.
-        del test_fixup_expected_failures, test_fixup_expected_errors, test_fixup_unexpected_success
-
 
 class TestFilterCommand(TestCase):
 
     def run_command(self, args, stream):
-        root = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        script_path = os.path.join(root, 'filters', 'subunit-filter')
-        command = [sys.executable, script_path] + list(args)
+        command = [sys.executable, '-m', 'subunit.filter_scripts.subunit_filter'] + list(args)
         ps = subprocess.Popen(
             command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)

@@ -1,0 +1,17 @@
+Description: Do not use datetime.datetime.utcnow()
+ This is deprecated in Python 3.12.
+Author: Thomas Goirand <zigo@debian.org>
+Forwarded: no
+Last-Update: 2023-12-17
+
+--- subunit-1.4.2.orig/python/subunit/test_results.py
++++ subunit-1.4.2/python/subunit/test_results.py
+@@ -196,7 +196,7 @@ class AutoTimingTestResultDecorator(Hook
+         time = self._time
+         if time is not None:
+             return
+-        time = datetime.datetime.utcnow().replace(tzinfo=iso8601.Utc())
++        time = datetime.datetime.now(datetime.UTC).replace(tzinfo=iso8601.Utc())
+         self.decorated.time(time)
+ 
+     def progress(self, offset, whence):

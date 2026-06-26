@@ -16,13 +16,14 @@
 
 import datetime
 import io
-import unittest2 as unittest
+from io import BytesIO
+from io import StringIO
 import os
-import sys
 import tempfile
+import unittest
 
 from testtools import PlaceHolder, skipIf, TestCase, TestResult
-from testtools.compat import _b, _u, BytesIO
+from testtools.compat import _b, _u
 from testtools.content import Content, TracebackContent, text_content
 from testtools.content_type import ContentType
 try:
@@ -37,18 +38,19 @@ except ImportError:
         Python27TestResult,
         ExtendedTestResult,
         )
-from testtools.matchers import Contains
+from testtools.matchers import Contains, Equals, MatchesAny
 
 import subunit
 from subunit.tests import (
     _remote_exception_repr,
+    _remote_exception_repr_chunked,
     _remote_exception_str,
     _remote_exception_str_chunked,
     )
 import subunit.iso8601 as iso8601
 
 
-tb_prelude = "Traceback (most recent call last):\n" 
+tb_prelude = "Traceback (most recent call last):\n"
 
 
 def details_to_str(details):
@@ -60,21 +62,13 @@ class TestHelpers(TestCase):
         fd, file_path = tempfile.mkstemp()
         self.addCleanup(os.remove, file_path)
         fake_file = os.fdopen(fd, 'r')
-        if sys.version_info > (3, 0):
-            self.assertEqual(fake_file.buffer,
-                             subunit._unwrap_text(fake_file))
-        else:
-            self.assertEqual(fake_file, subunit._unwrap_text(fake_file))
+        self.assertEqual(fake_file.buffer, subunit._unwrap_text(fake_file))
 
     def test__unwrap_text_file_write_mode(self):
         fd, file_path = tempfile.mkstemp()
         self.addCleanup(os.remove, file_path)
         fake_file = os.fdopen(fd, 'w')
-        if sys.version_info > (3, 0):
-            self.assertEqual(fake_file.buffer,
-                             subunit._unwrap_text(fake_file))
-        else:
-            self.assertEqual(fake_file, subunit._unwrap_text(fake_file))
+        self.assertEqual(fake_file.buffer, subunit._unwrap_text(fake_file))
 
     def test__unwrap_text_fileIO_read_mode(self):
         fd, file_path = tempfile.mkstemp()
@@ -153,12 +147,13 @@ class TestTestProtocolServerPipe(unittest.TestCase):
         bing = subunit.RemotedTestCase("bing crosby")
         an_error = subunit.RemotedTestCase("an error")
         self.assertEqual(
-            client.errors,
-            [(an_error, tb_prelude + _remote_exception_repr + '\n')])
+            client.errors, [(an_error, _remote_exception_repr + '\n')],
+        )
         self.assertEqual(
             client.failures,
-            [(bing, tb_prelude + _remote_exception_repr + ": "
-              + details_to_str({'traceback': text_content(traceback)}) + "\n")])
+            [(bing, _remote_exception_repr + ": "
+              + details_to_str({'traceback': text_content(traceback)}) + "\n")],
+        )
         self.assertEqual(client.testsRun, 3)
 
     def test_non_test_characters_forwarded_immediately(self):
@@ -1012,8 +1007,8 @@ class TestRemotedTestCase(unittest.TestCase):
                          "'A test description'>", "%r" % test)
         result = unittest.TestResult()
         test.run(result)
-        self.assertEqual([(test, tb_prelude + _remote_exception_repr + ": "
-                                 "Cannot run RemotedTestCases.\n\n")],
+        self.assertEqual([(test, _remote_exception_repr + ': ' +
+                           "Cannot run RemotedTestCases.\n\n")],
                          result.errors)
         self.assertEqual(1, result.testsRun)
         another_test = subunit.RemotedTestCase("A test description")
@@ -1178,6 +1173,11 @@ class TestIsolatedTestSuite(TestCase):
         self.assertEqual(self.SampleTestToIsolate.TEST, False)
 
 
+# A number of these tests produce different output depending on the
+# testtools version.  testtools < 2.5.0 used traceback2, which incorrectly
+# included the traceback header even for an exception with no traceback.
+# testtools 2.5.0 switched to the Python 3 standard library's traceback
+# module, which fixes this bug.  See https://bugs.python.org/issue24695.
 class TestTestProtocolClient(TestCase):
 
     def setUp(self):
@@ -1233,96 +1233,121 @@ class TestTestProtocolClient(TestCase):
         """Test addFailure on a TestProtocolClient."""
         self.protocol.addFailure(
             self.test, subunit.RemoteError(_u("boo qux")))
-        self.assertEqual(
-            self.io.getvalue(),
-            _b(('failure: %s [\n' + _remote_exception_str + ': boo qux\n]\n')
-            % self.test.id()))
+        self.assertThat(self.io.getvalue(), MatchesAny(
+            # testtools < 2.5.0
+            Equals(_b((
+                'failure: %s [\n' +
+                _remote_exception_str + ': boo qux\n' +
+                ']\n') % self.test.id())),
+            # testtools >= 2.5.0
+            Equals(_b((
+                'failure: %s [\n' +
+                _remote_exception_repr + ': boo qux\n' +
+                ']\n') % self.test.id()))))
 
     def test_add_failure_details(self):
         """Test addFailure on a TestProtocolClient with details."""
         self.protocol.addFailure(
             self.test, details=self.sample_tb_details)
-        self.assertThat([
-            _b(("failure: %s [ multipart\n"
-            "Content-Type: text/plain\n"
-            "something\n"
-            "F\r\nserialised\nform0\r\n"
-            "Content-Type: text/x-traceback;charset=utf8,language=python\n"
-            "traceback\n" + _remote_exception_str_chunked +
-            "]\n") % self.test.id()),
-            _b(("failure: %s [ multipart\n"
-            "Content-Type: text/plain\n"
-            "something\n"
-            "F\r\nserialised\nform0\r\n"
-            "Content-Type: text/x-traceback;language=python,charset=utf8\n"
-            "traceback\n" + _remote_exception_str_chunked +
-            "]\n") % self.test.id()),
-            ],
-            Contains(self.io.getvalue())),
+        self.assertThat(self.io.getvalue(), MatchesAny(
+            # testtools < 2.5.0
+            Equals(_b((
+                "failure: %s [ multipart\n"
+                "Content-Type: text/plain\n"
+                "something\n"
+                "F\r\nserialised\nform0\r\n"
+                "Content-Type: text/x-traceback;charset=utf8,language=python\n"
+                "traceback\n" + _remote_exception_str_chunked +
+                "]\n") % self.test.id())),
+            # testtools >= 2.5.0
+            Equals(_b((
+                "failure: %s [ multipart\n"
+                "Content-Type: text/plain\n"
+                "something\n"
+                "F\r\nserialised\nform0\r\n"
+                "Content-Type: text/x-traceback;charset=utf8,language=python\n"
+                "traceback\n" + _remote_exception_repr_chunked +
+                "]\n") % self.test.id()))))
 
     def test_add_error(self):
         """Test stopTest on a TestProtocolClient."""
         self.protocol.addError(
             self.test, subunit.RemoteError(_u("phwoar crikey")))
-        self.assertEqual(
-            self.io.getvalue(),
-            _b(('error: %s [\n' +
-            _remote_exception_str + ": phwoar crikey\n"
-            "]\n") % self.test.id()))
+        self.assertThat(self.io.getvalue(), MatchesAny(
+            # testtools < 2.5.0
+            Equals(_b((
+                'error: %s [\n' +
+                _remote_exception_str + ": phwoar crikey\n"
+                "]\n") % self.test.id())),
+            # testtools >= 2.5.0
+            Equals(_b((
+                'error: %s [\n' +
+                _remote_exception_repr + ": phwoar crikey\n"
+                "]\n") % self.test.id()))))
 
     def test_add_error_details(self):
         """Test stopTest on a TestProtocolClient with details."""
         self.protocol.addError(
             self.test, details=self.sample_tb_details)
-        self.assertThat([
-            _b(("error: %s [ multipart\n"
-            "Content-Type: text/plain\n"
-            "something\n"
-            "F\r\nserialised\nform0\r\n"
-            "Content-Type: text/x-traceback;charset=utf8,language=python\n"
-            "traceback\n" + _remote_exception_str_chunked +
-            "]\n") % self.test.id()),
-            _b(("error: %s [ multipart\n"
-            "Content-Type: text/plain\n"
-            "something\n"
-            "F\r\nserialised\nform0\r\n"
-            "Content-Type: text/x-traceback;language=python,charset=utf8\n"
-            "traceback\n" + _remote_exception_str_chunked +
-            "]\n") % self.test.id()),
-            ],
-            Contains(self.io.getvalue())),
+        self.assertThat(self.io.getvalue(), MatchesAny(
+            # testtools < 2.5.0
+            Equals(_b((
+                "error: %s [ multipart\n"
+                "Content-Type: text/plain\n"
+                "something\n"
+                "F\r\nserialised\nform0\r\n"
+                "Content-Type: text/x-traceback;charset=utf8,language=python\n"
+                "traceback\n" + _remote_exception_str_chunked +
+                "]\n") % self.test.id())),
+            # testtools >= 2.5.0
+            Equals(_b((
+                "error: %s [ multipart\n"
+                "Content-Type: text/plain\n"
+                "something\n"
+                "F\r\nserialised\nform0\r\n"
+                "Content-Type: text/x-traceback;charset=utf8,language=python\n"
+                "traceback\n" + _remote_exception_repr_chunked +
+                "]\n") % self.test.id()))))
 
     def test_add_expected_failure(self):
         """Test addExpectedFailure on a TestProtocolClient."""
         self.protocol.addExpectedFailure(
             self.test, subunit.RemoteError(_u("phwoar crikey")))
-        self.assertEqual(
-            self.io.getvalue(),
-            _b(('xfail: %s [\n' +
-            _remote_exception_str + ": phwoar crikey\n"
-            "]\n") % self.test.id()))
+        self.assertThat(self.io.getvalue(), MatchesAny(
+            # testtools < 2.5.0
+            Equals(_b((
+                'xfail: %s [\n' +
+                _remote_exception_str + ": phwoar crikey\n"
+                "]\n") % self.test.id())),
+            # testtools >= 2.5.0
+            Equals(_b((
+                'xfail: %s [\n' +
+                _remote_exception_repr + ": phwoar crikey\n"
+                "]\n") % self.test.id()))))
 
     def test_add_expected_failure_details(self):
         """Test addExpectedFailure on a TestProtocolClient with details."""
         self.protocol.addExpectedFailure(
             self.test, details=self.sample_tb_details)
-        self.assertThat([
-            _b(("xfail: %s [ multipart\n"
-            "Content-Type: text/plain\n"
-            "something\n"
-            "F\r\nserialised\nform0\r\n"
-            "Content-Type: text/x-traceback;charset=utf8,language=python\n"
-            "traceback\n" + _remote_exception_str_chunked +
-            "]\n") % self.test.id()),
-            _b(("xfail: %s [ multipart\n"
-            "Content-Type: text/plain\n"
-            "something\n"
-            "F\r\nserialised\nform0\r\n"
-            "Content-Type: text/x-traceback;language=python,charset=utf8\n"
-            "traceback\n" + _remote_exception_str_chunked +
-            "]\n") % self.test.id()),
-            ],
-            Contains(self.io.getvalue())),
+        self.assertThat(self.io.getvalue(), MatchesAny(
+            # testtools < 2.5.0
+            Equals(_b((
+                "xfail: %s [ multipart\n"
+                "Content-Type: text/plain\n"
+                "something\n"
+                "F\r\nserialised\nform0\r\n"
+                "Content-Type: text/x-traceback;charset=utf8,language=python\n"
+                "traceback\n" + _remote_exception_str_chunked +
+                "]\n") % self.test.id())),
+            # testtools >= 2.5.0
+            Equals(_b((
+                "xfail: %s [ multipart\n"
+                "Content-Type: text/plain\n"
+                "something\n"
+                "F\r\nserialised\nform0\r\n"
+                "Content-Type: text/x-traceback;charset=utf8,language=python\n"
+                "traceback\n" + _remote_exception_repr_chunked +
+                "]\n") % self.test.id()))))
 
     def test_add_skip(self):
         """Test addSkip on a TestProtocolClient."""

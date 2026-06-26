@@ -16,7 +16,7 @@
 
 import unittest
 
-from testtools.compat import _b, StringIO
+from testtools.compat import _b
 
 import subunit.tests
 from subunit import content, content_type, details

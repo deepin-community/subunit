@@ -1,6 +1,6 @@
 m4_define([SUBUNIT_MAJOR_VERSION], [1])
 m4_define([SUBUNIT_MINOR_VERSION], [4])
-m4_define([SUBUNIT_MICRO_VERSION], [0])
+m4_define([SUBUNIT_MICRO_VERSION], [2])
 m4_define([SUBUNIT_VERSION],
 m4_defn([SUBUNIT_MAJOR_VERSION]).m4_defn([SUBUNIT_MINOR_VERSION]).m4_defn([SUBUNIT_MICRO_VERSION]))
 AC_PREREQ([2.59])
@@ -24,7 +24,7 @@ AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_LIBTOOL
-AM_PATH_PYTHON
+AM_PATH_PYTHON([3.6])
 
 AS_IF([test "$GCC" = "yes"],
       [
@@ -67,6 +67,8 @@ PKG_CHECK_MODULES([CPPUNIT], [cppunit])
 
 # Output files
 AC_CONFIG_HEADERS([config.h])
+
+AC_CONFIG_COMMANDS([perl], [cd perl && perl Makefile.PL && cd ..], [])
 
 AC_CONFIG_FILES([libsubunit.pc
 		 libcppunit_subunit.pc

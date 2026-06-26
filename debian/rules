@@ -57,7 +57,10 @@ override_dh_auto_clean:
 		ltmain.sh \
 		missing \
 		py-compile
-	rm -rf m4
+	rm -rf m4 ; mkdir m4 ; touch m4/.exists
+	rm -rf c/lib/.libs c++/.libs
+	find . -iname '*.pyc' -delete
+	for i in $$(find . -type d -iname __pycache__) ; do rm -rf $$i ; done
 
 override_dh_auto_configure:
 	dh_auto_configure -- --$(if $(filter nocheck,$(DEB_BUILD_OPTIONS)),dis,en)able-check
